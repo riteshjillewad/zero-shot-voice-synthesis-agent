@@ -3,27 +3,40 @@
 import gradio as gr
 from inference import generate_voice
 
-def process(text, audio, speed, pitch):
-    # Basic input validation
+# Add the dictionary here
+SUPPORTED_LANGUAGES = {
+    "English": "en", "Spanish": "es", "French": "fr", "German": "de", 
+    "Italian": "it", "Portuguese": "pt", "Hindi": "hi", "Japanese": "ja", 
+    "Chinese": "zh-cn", "Arabic": "ar", "Russian": "ru", "Korean": "ko"
+}
+
+def process(text, audio, speed, pitch, consent_given, language_name):
+    # 1. Security & Compliance Check
+    if not consent_given:
+        return None, None, "Error: You must confirm you have the right to use this voice."
+
+    # 2. Basic input validation
     if not text:
         return None, None, "Please enter text"
 
     if not audio:
         return None, None, "Please upload a reference voice"
+    
+    # Look up the correct code (e.g., "Hindi" -> "hi")
+    lang_code = SUPPORTED_LANGUAGES.get(language_name, "en")
 
-    # Wrap the generation in a try-except block for better error handling
+    # 3. Model Execution with Error Handling
     try:
-        # Pass the new speed and pitch parameters to your updated inference function
         output_path = generate_voice(
             text=text, 
             speaker_wav=audio, 
             speed=speed, 
-            pitch=pitch
+            pitch=pitch,
+            lang_code=lang_code
         )
-        return output_path, output_path, "Voice generated successfully!"
+        return output_path, output_path, f"Voice generated successfully in {language_name}!"
         
     except Exception as e:
-        # If the model runs out of memory or a file is missing, it returns the error safely
         return None, None, f"Error generating voice: {str(e)}"
 
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
@@ -50,6 +63,14 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
                 label="Upload Voice Sample (Drag & Drop Supported)"
             )
             
+            # 🌍 ADDED: The Language Dropdown UI Component
+            language_dropdown = gr.Dropdown(
+                choices=list(SUPPORTED_LANGUAGES.keys()),
+                value="English",
+                label="Target Language",
+                info="Select the language of the text you entered."
+            )
+            
             # 🎛️ Advanced Settings for Speed and Pitch
             with gr.Accordion("Advanced Audio Settings", open=False):
                 speed_slider = gr.Slider(
@@ -61,12 +82,18 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
                     label="Pitch (Negative = Deep, Positive = High)"
                 )
 
+            # 🛡️ Mandatory Consent Checkbox
+            consent_checkbox = gr.Checkbox(
+                label="I confirm I have the right to use this voice and consent to it being processed.",
+                value=False
+            )
+
             # 🚀 Colored button
             generate_btn = gr.Button("Generate Voice", variant="primary")
 
-            # 🧹 Clear button (updated to clear the sliders as well)
+            # 🧹 Clear button (clears inputs, sliders, checkbox, and dropdown)
             clear_btn = gr.ClearButton(
-                components=[text_input, audio_input, speed_slider, pitch_slider],
+                components=[text_input, audio_input, language_dropdown, speed_slider, pitch_slider, consent_checkbox],
                 value="🧹 Clear Input"
             )
 
@@ -77,10 +104,10 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
 
             status = gr.Textbox(label="Status")
 
-    # Generate action with loading animation (wiring the new inputs)
+    # ADDED: language_dropdown to the inputs array so it passes the 6th argument to process()
     generate_btn.click(
         fn=process,
-        inputs=[text_input, audio_input, speed_slider, pitch_slider],
+        inputs=[text_input, audio_input, speed_slider, pitch_slider, consent_checkbox, language_dropdown],
         outputs=[output_audio, download_btn, status],
         show_progress=True
     )
