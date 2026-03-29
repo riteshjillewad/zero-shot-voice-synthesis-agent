@@ -1,101 +1,129 @@
-# app.py
+######################################################################################################
+## Name:        app.py
+## Description: Project source code
+## Date:        29-03-2026
+## Author:      Ritesh Jillewad
+######################################################################################################
 
+
+# Importing important libraries
 import gradio as gr
+import os
+import shutil
 from inference import generate_voice
 
-# Add the dictionary here
+
+# Voice profies
+VOICE_DIR = "voice_profiles"
+
+
+# Language dictionary
 SUPPORTED_LANGUAGES = {
-    "English": "en", "Spanish": "es", "French": "fr", "German": "de", 
-    "Italian": "it", "Portuguese": "pt", "Hindi": "hi", "Japanese": "ja", 
-    "Chinese": "zh-cn", "Arabic": "ar", "Russian": "ru", "Korean": "ko"
+    "English": "en", "Hindi": "hi", "French": "fr", "German": "de",
+    "Spanish": "es", "Italian": "it"
 }
 
-def process(text, audio, consent_given, language_name):
-    
-    # 1. Security & Compliance Check
+
+# Processing logic
+def process(text, audio, consent_given, language_name, selected_profile, save_name):
+
+    # Security check
     if not consent_given:
-        return None, None, "Error: You must confirm you have the right to use this voice."
+        return None, None, "Consent required"
 
-    # 2. Basic input validation
+    # Basic input validation
     if not text:
-        return None, None, "Please enter text"
+        return None, None, "Enter text"
 
-    if not audio:
-        return None, None, "Please upload a reference voice"
-    
-    # Look up the correct code (e.g., "Hindi" -> "hi")
     lang_code = SUPPORTED_LANGUAGES.get(language_name, "en")
 
-    # 3. Model Execution with Error Handling
+    # Select voice
+    if selected_profile != "Upload New":
+        profile_path = os.path.join(VOICE_DIR, selected_profile)
+    else:
+        if not audio:
+            return None, None, "Upload voice"
+
+        profile_path = audio
+
+        # Save user voice
+        if save_name:
+            save_path = os.path.join(VOICE_DIR, "user", f"{save_name}.wav")
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            shutil.copy(audio, save_path)
+
     try:
         output_path = generate_voice(
-            text=text, 
-            speaker_wav=audio, 
+            text=text,
+            speaker_wav=profile_path,
             lang_code=lang_code
         )
-        return output_path, output_path, f"Voice generated successfully in {language_name}!"
-        
-    except Exception as e:
-        return None, None, f"Error generating voice: {str(e)}"
+        return output_path, output_path, "Voice generated!"
 
+    except Exception as e:
+        return None, None, f"Error: {str(e)}"
+
+
+# UI logic
 with gr.Blocks() as demo:
 
-    gr.Markdown("""
-    # VoxAgent - Voice Cloning System
-    Generate speech using your own voice sample.
-    """)
+    gr.Markdown("# 🎤 VoxAgent - Voice Cloning System")
 
     with gr.Row():
 
         with gr.Column():
-            text_input = gr.Textbox(
-                label="Enter Text",
-                placeholder="Type what you want the AI to say...",
-                lines=4
-            )
+            text_input = gr.Textbox(label="Enter Text", lines=4)
 
-            audio_input = gr.Audio(
-                type="filepath",
-                label="Upload Voice Sample (Drag & Drop Supported)"
-            )
-            
-            # 🌍 ADDED: The Language Dropdown UI Component
+            audio_input = gr.Audio(type="filepath", label="Upload Voice")
+
             language_dropdown = gr.Dropdown(
                 choices=list(SUPPORTED_LANGUAGES.keys()),
                 value="English",
-                label="Target Language",
-                info="Select the language of the text you entered."
+                label="Language"
             )
 
-            # 🛡️ Mandatory Consent Checkbox
-            consent_checkbox = gr.Checkbox(
-                label="I confirm I have the right to use this voice and consent to it being processed.",
-                value=False
+            profile_dropdown = gr.Dropdown(
+                choices=[
+                    "predefined/male.wav",
+                    "predefined/female.wav",
+                    "predefined/child.wav",
+                    "Upload New"
+                ],
+                value="Upload New",
+                label="🎤 Voice Profile"
             )
 
-            # 🚀 Colored button
+            save_name_input = gr.Textbox(
+                label="Save Voice As (optional)"
+            )
+
+            consent_checkbox = gr.Checkbox(label="I confirm I have rights to use this voice")
+
             generate_btn = gr.Button("Generate Voice", variant="primary")
 
-            # 🧹 Clear button (clears inputs, sliders, checkbox, and dropdown)
             clear_btn = gr.ClearButton(
-                components=[text_input, audio_input, language_dropdown, consent_checkbox],
-                value="Clear Input"
+                [text_input, audio_input, save_name_input]
             )
 
         with gr.Column():
-            output_audio = gr.Audio(label="Generated Voice")
+            output_audio = gr.Audio(label="Output")
 
-            download_btn = gr.File(label="Download Audio")
+            download_btn = gr.File(label="Download")
 
             status = gr.Textbox(label="Status")
 
-    # ADDED: language_dropdown to the inputs array so it passes the 6th argument to process()
     generate_btn.click(
         fn=process,
-        inputs=[text_input, audio_input, consent_checkbox, language_dropdown],
+        inputs=[
+            text_input,
+            audio_input,
+            consent_checkbox,
+            language_dropdown,
+            profile_dropdown,
+            save_name_input
+        ],
         outputs=[output_audio, download_btn, status],
         show_progress=True
     )
 
-if __name__ == "__main__":
-    demo.launch(theme=gr.themes.Soft())
+demo.launch(theme=gr.themes.Soft())
