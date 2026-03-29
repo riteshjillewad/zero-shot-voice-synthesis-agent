@@ -21,7 +21,12 @@ def split_text_into_chunks(text):
     # Filter out any empty strings or purely whitespace chunks
     return [chunk.strip() for chunk in chunks if chunk.strip()]
 
-def generate_voice(text, speaker_wav, speed=1.0, pitch=0.0):
+def generate_voice(text, speaker_wav, speed=1.0, pitch=0.0, lang_code="en"):
+
+    # Ensure valid language
+    if not lang_code:
+        lang_code = "en"
+
     tts = get_tts_model()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
@@ -41,7 +46,7 @@ def generate_voice(text, speaker_wav, speed=1.0, pitch=0.0):
         tts.tts_to_file(
             text=chunk,
             speaker_wav=speaker_wav,
-            language="en",
+            language=lang_code,
             file_path=temp_filename
         )
         chunk_files.append(temp_filename)
