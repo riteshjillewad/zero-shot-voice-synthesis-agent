@@ -8,6 +8,8 @@ import numpy as np
 from models.tts_model import get_tts_model
 from config import OUTPUT_DIR
 from utils.audio_utils import modify_audio
+from utils.translator import translate_text
+
 
 def split_text_into_chunks(text):
     """
@@ -31,7 +33,17 @@ def generate_voice(text, speaker_wav, speed=1.0, pitch=0.0, lang_code="en"):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     # 1. Split the text into manageable chunks
-    chunks = split_text_into_chunks(text)
+    # 🌍 Translate text before processing
+    translated_text = translate_text(
+    text=text,
+    target_lang=lang_code,
+    source_lang="en"   # assuming user enters English
+)
+
+    print(f"Original: {text}")
+    print(f"Translated: {translated_text}")
+
+    chunks = split_text_into_chunks(translated_text)
     chunk_files = []
     
     # 2. Generate temporary audio for each chunk
